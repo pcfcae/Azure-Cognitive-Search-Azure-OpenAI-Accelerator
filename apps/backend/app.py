@@ -1,11 +1,12 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
+import os
 import sys
 import traceback
 from datetime import datetime
 
-from aiohttp import web
+from aiohttp import web, ClientError 
 from aiohttp.web import Request, Response, json_response
 from botbuilder.core import (
     BotFrameworkAdapterSettings,
@@ -26,6 +27,7 @@ CONFIG = DefaultConfig()
 SETTINGS = BotFrameworkAdapterSettings(CONFIG.APP_ID, CONFIG.APP_PASSWORD)
 ADAPTER = BotFrameworkAdapter(SETTINGS)
 
+local_dir = os.path.join(os.path.dirname(__file__), "public")
 
 # Catch-all for errors.
 async def on_error(context: TurnContext, error: Exception):
@@ -77,9 +79,33 @@ async def messages(req: Request) -> Response:
         return json_response(data=response.body, status=response.status)
     return Response(status=201)
 
+# Listen for incoming requests on /api/talk
+async def talks(req: Request):
+    if "application/json" in req.headers["Content-Type"]:
+        body = await req.json()
+    else:
+        return Response(status=415)
+
+    data = await BOT.send_message(body)
+    return json_response(data=data, status=200)
+
+async def ping(request):
+    return web.Response(text="pong")
+
+@web.middleware
+async def error_middleware(request, handler):
+    try:
+        response = await handler(request)
+        return response
+    except ClientError as e:
+        return web.Response(status=500, text=str(e))
 
 APP = web.Application(middlewares=[aiohttp_error_middleware])
+#APP = web.Application(middlewares=[error_middleware])
 APP.router.add_post("/api/messages", messages)
+APP.router.add_post("/api/talks", talks)
+APP.router.add_get("/ping", ping)
+APP.router.add_static('/public', local_dir)
 
 if __name__ == "__main__":
     try:

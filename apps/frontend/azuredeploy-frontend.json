@@ -89,14 +89,14 @@
     },
     "azureOpenAIModelName": {
       "type": "string",
-      "defaultValue": "gpt-35-turbo-1106",
+      "defaultValue": "gpt-4-32k",
       "metadata": {
         "description": "Optional. The model name of the Azure OpenAI."
       }
     },
     "azureOpenAIAPIVersion": {
       "type": "string",
-      "defaultValue": "2023-12-01-preview",
+      "defaultValue": "2023-05-15",
       "metadata": {
         "description": "Optional. The API version of the Azure OpenAI."
       }

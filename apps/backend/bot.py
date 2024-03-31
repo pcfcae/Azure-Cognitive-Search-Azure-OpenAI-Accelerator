@@ -6,6 +6,7 @@ import asyncio
 import random
 import requests
 import json
+import datetime
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional, Union
 
@@ -27,7 +28,8 @@ from utils import (
     CSVTabularAgent, 
     SQLSearchAgent, 
     ChatGPTTool, 
-    BingSearchAgent
+    BingSearchAgent,
+    make_token
 )
 from prompts import CUSTOM_CHATBOT_PROMPT, WELCOME_MESSAGE
 
@@ -55,7 +57,10 @@ class BotServiceCallbackHandler(BaseCallbackHandler):
         await self.tc.send_activity(f"\u2611{action.log} ...")
         await self.tc.send_activity(Activity(type=ActivityTypes.typing))
 
-            
+class MessageServiceCallbackHandler(BaseCallbackHandler):
+    def on_llm_error(self, error: Union[Exception, KeyboardInterrupt], **kwargs: Any) -> Any:
+        print(f"LLM Error: {error}\n")
+       
 # Bot Class
 class MyBot(ActivityHandler):
     
@@ -113,14 +118,14 @@ class MyBot(ActivityHandler):
                               max_tokens=1500, callback_manager=cb_manager, streaming=True)
 
         # Initialize our Tools/Experts
-        doc_indexes = ["cogsrch-index-files", "cogsrch-index-csv"]
+        # doc_indexes = ["cogsrch-index-files", "cogsrch-index-csv"]
         
-        doc_search = DocSearchAgent(llm=llm, indexes=doc_indexes,
-                           k=6, reranker_th=1,
-                           sas_token=os.environ['BLOB_SAS_TOKEN'],
-                           name="docsearch",
-                           description="useful when the questions includes the term: docsearch",
-                           callback_manager=cb_manager, verbose=False)
+        # doc_search = DocSearchAgent(llm=llm, indexes=doc_indexes,
+        #                    k=6, reranker_th=1,
+        #                    sas_token=os.environ['BLOB_SAS_TOKEN'],
+        #                    name="docsearch",
+        #                    description="useful when the questions includes the term: docsearch",
+        #                    callback_manager=cb_manager, verbose=False)
         
         book_indexes = ["cogsrch-index-books"]
         
@@ -131,21 +136,22 @@ class MyBot(ActivityHandler):
                            description="useful when the questions includes the term: booksearch",
                            callback_manager=cb_manager, verbose=False)
         
-        www_search = BingSearchAgent(llm=llm, k=10, callback_manager=cb_manager,
-                                    name="bing",
-                                    description="useful when the questions includes the term: bing")
+        # www_search = BingSearchAgent(llm=llm, k=10, callback_manager=cb_manager,
+        #                             name="bing",
+        #                             description="useful when the questions includes the term: bing")
         
-        sql_search = SQLSearchAgent(llm=llm, k=30, callback_manager=cb_manager,
-                            name="sqlsearch",
-                            description="useful when the questions includes the term: sqlsearch",
-                            verbose=False)
+        # sql_search = SQLSearchAgent(llm=llm, k=30, callback_manager=cb_manager,
+        #                     name="sqlsearch",
+        #                     description="useful when the questions includes the term: sqlsearch",
+        #                     verbose=False)
         
         chatgpt_search = ChatGPTTool(llm=llm, callback_manager=cb_manager,
                              name="chatgpt",
                             description="use for general questions, profile, greeting-like questions and when the questions includes the term: chatgpt",
                             verbose=False)
         
-        tools = [doc_search, book_search, www_search, sql_search, chatgpt_search]
+        # tools = [doc_search, book_search, www_search, sql_search, chatgpt_search]
+        tools = [book_search, chatgpt_search]
         
         agent = create_openai_tools_agent(llm, tools, CUSTOM_CHATBOT_PROMPT)
         agent_executor = AgentExecutor(agent=agent, tools=tools)
@@ -182,5 +188,74 @@ class MyBot(ActivityHandler):
         
         await turn_context.send_activity(answer)
 
+    async def send_message(self, message: str):
+        session_id = message['conversationId'] or make_token()
+        user_id = message['userId'] or make_token(6)
+        locale = message['locale'] or "en-US"
+        date = datetime.datetime.utcnow()
+        
+        input_text_metadata = dict()
+        input_text_metadata["locale"] = locale
+        input_text_metadata["local_timestamp"] = date.strftime("%I:%M:%S %p, %A, %B %d of %Y")
+        input_text_metadata["local_timezone"] = date.astimezone().tzinfo
 
+        # Setting the query to send to OpenAI
+        input_text = message['text'] + "\n\n metadata:\n" + str(input_text_metadata)   
+        
+        # Set Callback Handler
+        cb_handler = MessageServiceCallbackHandler()
+        cb_manager = CallbackManager(handlers=[cb_handler])
 
+        # Set LLM 
+        llm = AzureChatOpenAI(deployment_name=self.model_name, temperature=0, 
+                              max_tokens=1500, callback_manager=cb_manager, streaming=True)
+        
+        book_indexes = ["cogsrch-index-books"]
+        
+        book_search = DocSearchAgent(llm=llm, indexes=book_indexes,
+                           k=6, reranker_th=1,
+                           sas_token=os.environ['BLOB_SAS_TOKEN'],
+                           name="booksearch",
+                           description="useful when the questions includes the term: booksearch",
+                           callback_manager=cb_manager, verbose=False)
+        
+        chatgpt_search = ChatGPTTool(llm=llm, callback_manager=cb_manager,
+                             name="chatgpt",
+                            description="use for general questions, profile, greeting-like questions and when the questions includes the term: chatgpt",
+                            verbose=False)
+        
+        tools = [book_search, chatgpt_search]
+        
+        agent = create_openai_tools_agent(llm, tools, CUSTOM_CHATBOT_PROMPT)
+        agent_executor = AgentExecutor(agent=agent, tools=tools)
+        brain_agent_executor = RunnableWithMessageHistory(
+            agent_executor,
+            self.get_session_history,
+            input_messages_key="question",
+            history_messages_key="history",
+            history_factory_config=[
+                ConfigurableFieldSpec(
+                    id="user_id",
+                    annotation=str,
+                    name="User ID",
+                    description="Unique identifier for the user.",
+                    default="",
+                    is_shared=True,
+                ),
+                ConfigurableFieldSpec(
+                    id="session_id",
+                    annotation=str,
+                    name="Session ID",
+                    description="Unique identifier for the conversation.",
+                    default="",
+                    is_shared=True,
+                ),
+            ],
+        )
+        
+        config={"configurable": {"session_id": session_id, "user_id": user_id}}
+        
+        answer = brain_agent_executor.invoke({"question": input_text}, config=config)["output"]
+
+        data = {'conversationId': session_id, 'userId': user_id, 'locale': locale, 'text': answer}
+        return data

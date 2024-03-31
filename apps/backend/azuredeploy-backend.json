@@ -61,7 +61,7 @@
     },
     "azureOpenAIModelName": {
       "type": "string",
-      "defaultValue": "gpt-35-turbo-1106",
+      "defaultValue": "gpt-4-32k",
       "metadata": {
         "description": "Optional. The model name for the Azure OpenAI service."
       }

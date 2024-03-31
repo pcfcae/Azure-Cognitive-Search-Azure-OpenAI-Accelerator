@@ -1,0 +1,76 @@
+{
+    "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.7/MicrosoftTeams.schema.json",
+    "version": "1.1.0",
+    "manifestVersion": "1.7",
+    "id": "0a359db1-8325-4a47-8c1f-edf49ec054d6",
+    "packageName": "ae.pcfc.teams.maryam",
+    "name": {
+      "short": "Maryam - PCFC Digital Human",
+      "full": "Maryam - PCFC Digital Human Assistant"
+    },
+    "developer": {
+      "name": "PCFC",
+      "websiteUrl": "https://www.pcfc.ae",
+      "privacyUrl": "https://www.pcfc.ae/en/Pages/privacy-policy.aspx",
+      "termsOfUseUrl": "https://www.pcfc.ae/en/Pages/Terms-and-Condition.aspx"
+    },
+    "description": {
+      "short": "PCFC Digital Human Assistant",
+      "full": "Your trusted PCFC companion for navigating data with ease! More than just a chatbot, it's your dedicated data partner. Need answers? It's here to provide, complete with sources and explanations. Give it a try and discover the pleasure of effortless data discovery!"
+    },
+    "localizationInfo": {
+        "defaultLanguageTag": "en",
+        "additionalLanguages": [
+          {
+            "languageTag": "en",
+            "file": "en.json"
+          }
+        ]
+      },
+    "icons": {
+      "outline": "outline.png",
+      "color": "color.png"
+    },
+    "accentColor": "#c09949",
+    "staticTabs": [
+      {
+        "entityId": "conversations",
+        "scopes": [
+          "personal"
+        ]
+      },
+      {
+        "entityId": "about",
+        "scopes": [
+          "personal"
+        ]
+      }
+    ],
+    "bots": [
+      {
+        "botId": "0a359db1-8325-4a47-8c1f-edf49ec054d6",
+        "scopes": [
+          "personal"
+        ],
+        "commandLists": [
+          {
+            "commands": [
+              {
+                "title": "Hello!",
+                "description": "Welcome to the ChatBot"
+              }
+            ],
+            "scopes": [
+              "personal"
+            ]
+          }
+        ],
+        "isNotificationOnly": false,
+        "supportsFiles": false
+      }
+    ],
+    "validDomains": [],
+    "webApplicationInfo": {
+      "id": "0a359db1-8325-4a47-8c1f-edf49ec054d6"
+    }
+  }
